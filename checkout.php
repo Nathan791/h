@@ -1,50 +1,82 @@
 <?php
 session_start();
+require_once 'db.php';
+require __DIR__ . '/vendor/autoload.php';
 
-// 1. Early exit if cart is empty
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
+$dotenv->safeLoad();
+
+\Stripe\Stripe::setApiKey($_ENV['STRIPE_SECRET']);
+
 if (empty($_SESSION['cart'])) {
-    die("Your cart is empty.");
+    header("Location: shop.php");
+    exit();
 }
 
-// 2. Database Connection (Consider moving this to a config file)
-mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-try {
-    $db = new mysqli("localhost", "root", "", "commerce");
-    $db->set_charset("utf8mb4");
-} catch (Exception $e) {
-    die("Connection failed: " . $e->getMessage());
-}
+$line_items = [];
+$order_total = 0;
+$items_to_save = [];
 
-// 3. Prepare IDs for a single batch query
-$cartIds = array_keys($_SESSION['cart']);
-$placeholders = implode(',', array_fill(0, count($cartIds), '?'));
-$types = str_repeat('i', count($cartIds));
+// 1. Fetch data and calculate total server-side
+foreach ($_SESSION['cart'] as $productId => $quantity) {
+    $stmt = $db->prepare("SELECT id, name, price FROM products WHERE id = ?");
+    $stmt->bind_param("i", $productId);
+    $stmt->execute();
+    $product = $stmt->get_result()->fetch_assoc();
 
-// 4. Fetch all relevant products at once
-$stmt = $db->prepare("SELECT id, price, stock FROM products WHERE id IN ($placeholders)");
-$stmt->bind_param($types, ...$cartIds);
-$stmt->execute();
-$result = $stmt->get_result();
-
-$total = 0;
-$itemsFound = 0;
-
-// 5. Calculate total and validate stock
-while ($p = $result->fetch_assoc()) {
-    $id = $p['id'];
-    $qty = $_SESSION['cart'][$id];
-    
-    if ($p['stock'] < $qty) {
-        die("Stock insufficient for one or more items.");
+    if ($product) {
+        $unit_amount = (int)($product['price'] * 100); // Convert to cents
+        $line_items[] = [
+            'price_data' => [
+                'currency' => 'usd',
+                'product_data' => ['name' => $product['name']],
+                'unit_amount' => $unit_amount,
+            ],
+            'quantity' => $quantity,
+        ];
+        $order_total += ($unit_amount * $quantity);
+        $items_to_save[] = $product;
     }
-    
-    $total += $p['price'] * $qty;
-    $itemsFound++;
 }
 
+// 2. Create a "Pending" order in your database
+// This ensures you have a record even if the user closes the tab mid-payment
+$user_id = $_SESSION['user_id'] ?? 0; 
+$stmt = $db->prepare("INSERT INTO orders (user_id, total_amount, status) VALUES (?, ?, 'pending')");
+$stmt->bind_param("ii", $user_id, $order_total);
+$stmt->execute();
+$internal_order_id = $db->insert_id;
+
+// 3. Create Stripe Session with Metadata
+try {
+    $checkout_session = \Stripe\Checkout\Session::create([
+        'payment_method_types' => ['card'],
+        'line_items' => $line_items,
+        'mode' => 'payment',
+        // Use environment variable for the base URL
+        'success_url' => $_ENV['BASE_URL'] . '/payment_success.php?session_id={CHECKOUT_SESSION_ID}',
+        'cancel_url' => $_ENV['BASE_URL'] . '/cart.php',
+        'metadata' => [
+            'order_id' => $internal_order_id // CRITICAL: Links Stripe to your DB
+        ],
+    ]);
+
+    header("HTTP/1.1 303 See Other");
+    header("Location: " . $checkout_session->url);
+} catch (Exception $e) {
+    error_log("Stripe Error: " . $e->getMessage());
+    echo "Temporary payment error. Please try again later.";
+}
 // Ensure all items in session actually existed in DB
 if ($itemsFound !== count($_SESSION['cart'])) {
     // Optional: Logic to handle items that no longer exist
+}
+
+// Check if token is older than 1 hour (3600 seconds)
+$max_time = 3600; 
+if (time() - $_SESSION['csrf_token_time'] > $max_time) {
+    unset($_SESSION['csrf_token']); // Clear expired token
+    die("Session expired. Please refresh the page.");
 }
 ?>
 
@@ -74,9 +106,10 @@ if ($itemsFound !== count($_SESSION['cart'])) {
         Total: $<?= number_format($total, 2) ?>
     </div>
 
-    <form action="pay.php" method="post">
-        <button type="submit">Proceed to Payment</button>
-    </form>
+  <form action="pay.php" method="POST">
+    <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+    <button type="submit">Confirm and Pay</button>
+</form>
     
     <a href="cart.php" class="back-link">← Return to Cart</a>
 </div>

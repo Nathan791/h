@@ -159,9 +159,9 @@ $userName = htmlspecialchars($_SESSION["name"] ?? 'User');
 <div class="privacy-container">
     <header class="header-nav">
         <i class='bx bx-arrow-back back-btn' onclick="window.history.back();"></i>
-        <a href="user-dashboard.php">Dashboard</a> 
+        <a href="user-dashboard.php">Dashboard</a>
         <span>&gt;</span> 
-        <a href="settings.php">Settings</a> 
+        <a href="settings.php">Settings</a>
         <span>&gt;</span> Privacy
     </header>
 

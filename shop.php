@@ -2,7 +2,7 @@
 session_start();
 require_once 'db.php';
 
-// 1. Fetch Products that are in stock
+// 1. Fetch Products that are in stock AND active
 try {
     $query = "
         SELECT p.id, p.name, p.price, p.stock, pi.image_path 
@@ -13,6 +13,7 @@ try {
             GROUP BY product_id
         ) pi ON p.id = pi.product_id
         WHERE p.stock > 0 
+        AND p.status = 'active' 
         ORDER BY p.id DESC";
     
     $result = $db->query($query);
@@ -68,6 +69,7 @@ $cart_count = !empty($_SESSION['cart']) ? array_sum($_SESSION['cart']) : 0;
 
 <header>
     <div class="logo">
+        <i id="goBackBtn" class='bx bx-left-arrow-alt back-btn'></i>
         <h2 class="m-0 fs-4 fw-bold">Premium<span style="color:var(--accent)">Store</span></h2>
     </div>
     <nav>
@@ -136,6 +138,9 @@ $cart_count = !empty($_SESSION['cart']) ? array_sum($_SESSION['cart']) : 0;
             alert('Could not connect to server.');
         }
     }
+    document.getElementById('goBackBtn').onclick = function() {
+        window.history.back();
+    };
 </script>
 
 </body>

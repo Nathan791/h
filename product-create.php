@@ -114,6 +114,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <meta charset="UTF-8">
     <title>Admin - Create Product</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <style>
         .preview-carousel img { height: 400px; object-fit: cover; border-radius: 8px; }
         .form-container { max-width: 600px; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
@@ -122,6 +123,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <body class="bg-light">
 
 <div class="container py-5">
+    <i id="goBackBtn" class='bx bx-left-arrow-alt back-btn'></i>
     <div class="row justify-content-center">
         <div class="col-md-8">
             <div class="form-container mb-5">
@@ -198,5 +200,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+         // Navigation
+    document.getElementById('goBackBtn').onclick = () => window.history.back();
+</script>
 </body>
 </html>

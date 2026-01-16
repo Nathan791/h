@@ -130,11 +130,13 @@ $userName = htmlspecialchars($_SESSION["name"] ?? 'User');
         <i id="goBackBtn" class='bx bx-left-arrow-alt' style="cursor:pointer; font-size: 1.8rem;"></i>
         <h2>Dashboard</h2>
     </div>
-    
+    <span>Hi, <strong><?= $userName ?></strong>👋</span>
     <nav class="navbar">
-        <span>Hi, <strong><?= $userName ?></strong></span>
         <a href="/COMMERCE/profile.php">Profile</a>
         <a href="/COMMERCE/cart.php">My Cart</a>
+        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
+            <a href="/COMMERCE/admin-dashboard.php">Admin Panel</a>
+        <?php endif; ?>
         <a href="/COMMERCE/logout.php" class="text-danger">Logout</a>
         <span class="toggle-btn" id="themeToggle">🌙</span>
     </nav>
